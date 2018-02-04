@@ -1,0 +1,178 @@
+1.MUTUAL KEY
+package org;
+
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
+
+import org.apache.hadoop.io.*;
+import org.apache.hadoop.io.WritableComparable;
+
+public class Mutualkey implements WritableComparable<Mutualkey>{
+	private Text friend1 = new Text();
+	private Text friend2 = new Text();
+	
+	
+	
+	@Override
+	public int compareTo(Mutualkey o) {
+		// TODO Auto-generated method stub
+		int x=friend1.compareTo(o.friend1);
+		if(x==0){
+			x=friend2.compareTo(o.friend2);
+		}
+		return x;
+	}
+	public void set(String p,String a){
+		friend1.set(p);
+		friend2.set(a);
+	}
+	
+	
+	@Override
+	public void readFields(DataInput in) throws IOException {
+		// TODO Auto-generated method stub
+		friend1.readFields(in);
+		friend2.readFields(in);
+	}
+
+	@Override
+	public void write(DataOutput out) throws IOException {
+		// TODO Auto-generated method stub
+		friend1.write(out);
+		friend2.write(out);
+	}
+	
+	public String toString(){
+		String v="["+friend1+","+friend2+"]";
+		return v;
+	}
+
+}
+======================================================================================================================
+2.MUTUAL MAPPER
+package org;
+
+import java.io.IOException;
+import org.apache.hadoop.io.*;
+import org.apache.hadoop.mapreduce.Mapper;
+import java.util.Arrays;
+
+public class Mutualmapper extends Mapper<LongWritable,Text,Mutualkey,Text>{
+	
+	private Mutualkey outkey = new Mutualkey();
+	private Text outvalue = new Text();
+	String[] arr = new String[2];
+	
+	@Override
+	protected void map(LongWritable key, Text value,Context context)
+			throws IOException, InterruptedException {
+		
+		String rec = value.toString();
+		try{
+			String f[] =rec.split(",");
+			String f1[]=f[1].split(" ");
+	
+				for(int i=0; i < f1.length; i++){
+					arr[0] = f[0];
+					arr[1] = f1[i];
+					Arrays.sort(arr);
+					outkey.set(arr[0],arr[1]);
+					outvalue.set(f[1]);
+					context.write(outkey,outvalue);
+				}
+		}catch(Exception e){
+			
+		}
+	}
+}
+=====================================================================================================================
+3.MUTUAL REDUCER
+package org;
+
+import java.io.IOException;
+
+import org.apache.hadoop.io.*;
+import org.apache.hadoop.mapreduce.Reducer;
+
+public class Mutualreducer extends Reducer<Mutualkey,Text,Mutualkey,Text>{
+	
+	String[] l = new String[2];
+	
+	@Override
+	protected void reduce(Mutualkey key, Iterable<Text> value,Context context)
+			throws IOException, InterruptedException {
+		 int k = 0;
+         for(Text v:value){
+        	 l[k] = v.toString();
+        	 k++;
+        	 
+         }
+         StringBuilder sb = new StringBuilder();
+			String[] l1 = l[0].toString().split(" ");
+			String[] l2 = l[1].toString().split(" ");
+			for(int i=0;i<l1.length;i++){  
+			    for(int j=0;j<l2.length;j++){  
+			        if(l1[i].equals(l2[j])){  
+			        	sb.append(l1[i]+" ");
+			            break;
+			        }  
+			    }  
+			} 
+			
+			context.write(key, new Text(sb.toString()));
+	}
+	
+}
+======================================================================================================================
+4.MUTUAL DRIVER
+package org;
+
+import java.io.IOException;
+
+import org.apache.hadoop.conf.*;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.*;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class Mutualdriver {
+
+	/**
+	 * @param args
+	 * @throws IOException 
+	 */
+	public static void main(String[] args) throws IOException {
+		// TODO Auto-generated method stub
+		Configuration conf = new Configuration();
+		Job job= Job.getInstance(conf);
+		
+		job.setJarByClass(Mutualdriver.class);
+		job.setMapperClass(Mutualmapper.class);
+		job.setReducerClass(Mutualreducer.class);
+		
+		job.setNumReduceTasks(1);
+		
+		job.setMapOutputKeyClass(Mutualkey.class);
+		job.setMapOutputValueClass(Text.class);
+		
+		job.setOutputKeyClass(Text.class);
+		job.setOutputValueClass(Text.class);
+		
+		FileInputFormat.addInputPath(job,new Path("Mutualin"));
+		FileOutputFormat.setOutputPath(job,new Path("Mutualout"));
+		
+		try {
+			job.waitForCompletion(true);
+		} catch (ClassNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
+}
+========================================================================================================================================
